@@ -1,0 +1,16 @@
+{
+  "name": "Nostr Profile Delta",
+  "short_name": "Profile Delta",
+  "description": "Track profile changes across the Nostr network and identify relay inconsistencies",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}
