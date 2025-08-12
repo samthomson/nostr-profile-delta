@@ -38,6 +38,7 @@ const DEFAULT_RELAYS = [
   'wss://nos.lol',
   'wss://relay.primal.net',
   'wss://relay.snort.social',
+  'wss://purplepag.es',
 ];
 
 interface ProfileMetadata {
@@ -67,6 +68,7 @@ interface ProfileData {
   error?: string;
   metadata?: ProfileMetadata;
   timestamp?: number;
+  notChecked?: boolean;
 }
 
 interface RelaySet {
@@ -191,7 +193,7 @@ const Index = () => {
 
   // Query to get the user's profile (kind 0) from all relays individually
   const { data: profilesData, isLoading: isLoadingProfiles, refetch: refetchProfiles } = useQuery({
-    queryKey: ['profiles', pubkey, relaySets],
+    queryKey: ['profiles', pubkey, relaySets, userRelays],
     queryFn: async ({ signal }) => {
       if (!pubkey) return [];
       
@@ -202,7 +204,27 @@ const Index = () => {
         return [];
       }
       
-      const profilePromises = allRelays.map(async (relayUrl) => {
+      // Track which relays we've checked and which ones haven't been checked yet
+      const checkedRelays: string[] = [];
+      const uncheckedRelays: string[] = [];
+      
+      // Only auto-check the user's own relays
+      allRelays.forEach(relay => {
+        if (userRelays && userRelays.includes(relay)) {
+          checkedRelays.push(relay);
+        } else {
+          uncheckedRelays.push(relay);
+        }
+      });
+      
+      // Create an initial array of placeholder results for unchecked relays
+      const uncheckedResults = uncheckedRelays.map(relayUrl => ({
+        relayUrl,
+        notChecked: true,
+      }));
+      
+      // Query only the user's relays initially
+      const profilePromises = checkedRelays.map(async (relayUrl) => {
         try {
           // Query directly from the main nostr pool with a relay-specific filter
           const events = await nostr.query(
@@ -243,16 +265,21 @@ const Index = () => {
         }
       });
       
-      const results = await Promise.all(profilePromises);
+      const checkedResults = await Promise.all(profilePromises);
       
-      // Sort by timestamp, most recent first
+      // Combine checked and unchecked results
+      const results = [...checkedResults, ...uncheckedResults];
+      
+      // Sort by timestamp, most recent first, with unchecked relays at the end
       return results.sort((a, b) => {
+        if ('notChecked' in a) return 1;
+        if ('notChecked' in b) return -1;
         if (!a.timestamp) return 1;
         if (!b.timestamp) return -1;
         return b.timestamp - a.timestamp;
       });
     },
-    enabled: !!pubkey && relaySets.some(set => set.relays.length > 0),
+    enabled: !!pubkey && relaySets.some(set => set.relays.length > 0) && !!userRelays,
     retry: 2,
   });
 
@@ -682,7 +709,9 @@ const Index = () => {
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    {profile.error ? (
+                                    {'notChecked' in profile ? (
+                                      <Badge variant="secondary">Not Checked</Badge>
+                                    ) : profile.error ? (
                                       <Badge variant="destructive">Error</Badge>
                                     ) : (
                                       <>
@@ -693,7 +722,19 @@ const Index = () => {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    {renderProfileContent(profile)}
+                                    {'notChecked' in profile ? (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        className="text-xs"
+                                        onClick={() => refreshRelayProfile(profile.relayUrl)}
+                                        disabled={refreshingRelays[profile.relayUrl] || isLoadingProfiles}
+                                      >
+                                        {refreshingRelays[profile.relayUrl] ? 'Checking...' : 'Check Relay'}
+                                      </Button>
+                                    ) : (
+                                      renderProfileContent(profile)
+                                    )}
                                   </TableCell>
                                   <TableCell>
                                     {profile.timestamp ? (
@@ -719,7 +760,11 @@ const Index = () => {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    {renderDifferencesButton(profile, outdated)}
+                                    {'notChecked' in profile ? (
+                                      <span className="text-muted-foreground text-xs italic">Check relay first</span>
+                                    ) : (
+                                      renderDifferencesButton(profile, outdated)
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               );
@@ -877,42 +922,36 @@ const Index = () => {
                     <div>
                       <h3 className="text-sm font-medium mb-2">Outdated</h3>
                       <pre className="p-4 rounded-md bg-muted overflow-auto max-h-[50vh] text-xs">
-                        {currentDiff.fields.map(field => {
-                          // Prepare the full JSON for context
-                          const lines = JSON.stringify(currentDiff.profile.metadata, null, 2).split('\n');
+                        {JSON.stringify(currentDiff.profile.metadata, null, 2).split('\n').map((line, index) => {
+                          // Check if this line contains any of the diffed fields
+                          const containsDiff = currentDiff.fields.some(field => line.includes(`"${field}"`));
                           
-                          return lines.map((line, index) => {
-                            // Check if this line contains the field being diffed
-                            if (line.includes(`"${field}"`)) {
-                              return (
-                                <div key={`outdated-${field}-${index}`} className="bg-red-500/10 -mx-4 px-4">
-                                  <code>{line}</code>
-                                </div>
-                              );
-                            }
-                            return <div key={`outdated-line-${index}`}><code>{line}</code></div>;
-                          });
+                          if (containsDiff) {
+                            return (
+                              <div key={`outdated-line-${index}`} className="bg-red-500/10 -mx-4 px-4">
+                                <code>{line}</code>
+                              </div>
+                            );
+                          }
+                          return <div key={`outdated-line-${index}`}><code>{line}</code></div>;
                         })}
                       </pre>
                     </div>
                     <div>
                       <h3 className="text-sm font-medium mb-2">Latest</h3>
                       <pre className="p-4 rounded-md bg-muted overflow-auto max-h-[50vh] text-xs">
-                        {currentDiff.fields.map(field => {
-                          // Prepare the full JSON for context
-                          const lines = JSON.stringify(mostRecentProfile, null, 2).split('\n');
+                        {JSON.stringify(mostRecentProfile, null, 2).split('\n').map((line, index) => {
+                          // Check if this line contains any of the diffed fields
+                          const containsDiff = currentDiff.fields.some(field => line.includes(`"${field}"`));
                           
-                          return lines.map((line, index) => {
-                            // Check if this line contains the field being diffed
-                            if (line.includes(`"${field}"`)) {
-                              return (
-                                <div key={`latest-${field}-${index}`} className="bg-green-500/10 -mx-4 px-4">
-                                  <code>{line}</code>
-                                </div>
-                              );
-                            }
-                            return <div key={`latest-line-${index}`}><code>{line}</code></div>;
-                          });
+                          if (containsDiff) {
+                            return (
+                              <div key={`latest-line-${index}`} className="bg-green-500/10 -mx-4 px-4">
+                                <code>{line}</code>
+                              </div>
+                            );
+                          }
+                          return <div key={`latest-line-${index}`}><code>{line}</code></div>;
                         })}
                       </pre>
                     </div>
