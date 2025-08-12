@@ -1,5 +1,4 @@
-// @ts-expect-error: TypeScript errors are related to metadata optional fields that are handled with optional chaining
-// We need to rely on runtime validation to access profile.metadata fields
+// We need to handle optional metadata fields that may be undefined
 
 import { useSeoMeta } from '@unhead/react';
 import { useState, useCallback, useEffect } from 'react';
@@ -111,6 +110,9 @@ const Index = () => {
               // Convert to npub for display
               const npub = nip19.npubEncode(pubkey);
               setNpubInput(npub);
+              
+              // Also set the pubkey directly to trigger the query
+              setPubkey(pubkey);
             } catch (error) {
               console.error('Error encoding pubkey to npub:', error);
             }
@@ -334,8 +336,8 @@ const Index = () => {
     const fields = ['name', 'display_name', 'picture', 'banner', 'about', 'website', 'nip05', 'lud06', 'lud16'];
     
     return fields.some(field => {
-      return mostRecentProfile[field] !== profile.metadata[field] && 
-        (mostRecentProfile[field] || profile.metadata[field]); // Ensure at least one is non-empty
+      return mostRecentProfile?.[field] !== profile.metadata?.[field] && 
+        (mostRecentProfile?.[field] || profile.metadata?.[field]); // Ensure at least one is non-empty
     });
   };
 
@@ -443,8 +445,8 @@ const Index = () => {
     
     const metadata = profile.metadata;
     const diffFields = ['name', 'display_name', 'picture', 'banner', 'about', 'website', 'nip05', 'lud06', 'lud16']
-      .filter(field => mostRecentProfile[field] !== metadata[field] && 
-        (mostRecentProfile[field] || metadata[field]));
+      .filter(field => mostRecentProfile?.[field] !== metadata[field] && 
+        (mostRecentProfile?.[field] || metadata[field]));
     
     setCurrentDiff({ profile, fields: diffFields });
     setDiffDialogOpen(true);
@@ -655,9 +657,19 @@ const Index = () => {
                                 <TableRow key={index} className={outdated ? 'bg-destructive/5' : isLatest ? 'bg-green-500/5' : ''}>
                                   <TableCell className="max-w-[200px]">
                                     <div className="flex items-center justify-between">
-                                      <span className="font-medium truncate">
-                                        {profile.relayUrl}
-                                      </span>
+                                      <div className="flex items-center">
+                                        {userRelays && userRelays.includes(profile.relayUrl) && (
+                                          <span className="mr-1.5 text-primary" title="In user's relay set">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle">
+                                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                              <polyline points="22 4 12 14.01 9 11.01"/>
+                                            </svg>
+                                          </span>
+                                        )}
+                                        <span className="font-medium truncate">
+                                          {profile.relayUrl}
+                                        </span>
+                                      </div>
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -749,12 +761,22 @@ const Index = () => {
                         </p>
                       ) : (
                         <div className="flex flex-wrap gap-2">
-                          {set.relays.map((relay, relayIndex) => (
+                          {set.relays.map((relay, relayIndex) => {
+                            const isUserRelay = userRelays && userRelays.includes(relay);
+                            return (
                             <Badge 
                               key={relayIndex}
                               variant="secondary"
                               className="flex items-center gap-1"
                             >
+                              {isUserRelay && set.label !== 'User\'s Relays' && (
+                                <span className="mr-1 text-primary" title="In user's relay set">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                  </svg>
+                                </span>
+                              )}
                               {relay}
                               {set.label === 'Custom' && (
                                 <Button
@@ -767,7 +789,8 @@ const Index = () => {
                                 </Button>
                               )}
                             </Badge>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -839,9 +862,9 @@ const Index = () => {
                             {currentDiff.profile.metadata?.[field] || <span className="italic text-muted-foreground">(empty)</span>}
                           </p>
                         </div>
-                        <div className={`p-4 ${mostRecentProfile[field] ? 'bg-green-50 dark:bg-green-950/20' : 'bg-muted'}`}>
+                        <div className={`p-4 ${mostRecentProfile?.[field] ? 'bg-green-50 dark:bg-green-950/20' : 'bg-muted'}`}>
                           <p className="text-sm break-words">
-                            {mostRecentProfile[field] || <span className="italic text-muted-foreground">(empty)</span>}
+                            {mostRecentProfile?.[field] || <span className="italic text-muted-foreground">(empty)</span>}
                           </p>
                         </div>
                       </div>
@@ -854,13 +877,43 @@ const Index = () => {
                     <div>
                       <h3 className="text-sm font-medium mb-2">Outdated</h3>
                       <pre className="p-4 rounded-md bg-muted overflow-auto max-h-[50vh] text-xs">
-                        <code>{JSON.stringify(currentDiff.profile.metadata, null, 2)}</code>
+                        {currentDiff.fields.map(field => {
+                          // Prepare the full JSON for context
+                          const lines = JSON.stringify(currentDiff.profile.metadata, null, 2).split('\n');
+                          
+                          return lines.map((line, index) => {
+                            // Check if this line contains the field being diffed
+                            if (line.includes(`"${field}"`)) {
+                              return (
+                                <div key={`outdated-${field}-${index}`} className="bg-red-500/10 -mx-4 px-4">
+                                  <code>{line}</code>
+                                </div>
+                              );
+                            }
+                            return <div key={`outdated-line-${index}`}><code>{line}</code></div>;
+                          });
+                        })}
                       </pre>
                     </div>
                     <div>
                       <h3 className="text-sm font-medium mb-2">Latest</h3>
                       <pre className="p-4 rounded-md bg-muted overflow-auto max-h-[50vh] text-xs">
-                        <code>{JSON.stringify(mostRecentProfile, null, 2)}</code>
+                        {currentDiff.fields.map(field => {
+                          // Prepare the full JSON for context
+                          const lines = JSON.stringify(mostRecentProfile, null, 2).split('\n');
+                          
+                          return lines.map((line, index) => {
+                            // Check if this line contains the field being diffed
+                            if (line.includes(`"${field}"`)) {
+                              return (
+                                <div key={`latest-${field}-${index}`} className="bg-green-500/10 -mx-4 px-4">
+                                  <code>{line}</code>
+                                </div>
+                              );
+                            }
+                            return <div key={`latest-line-${index}`}><code>{line}</code></div>;
+                          });
+                        })}
                       </pre>
                     </div>
                   </div>
