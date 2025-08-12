@@ -187,12 +187,12 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
         <DialogHeader className={cn('px-6 pt-6 pb-1 relative')}>
 
             <DialogDescription className="text-center">
-              Sign up or log in to continue
+              Connect to Nostr
             </DialogDescription>
         </DialogHeader>
         <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-auto flex-1'>
           {/* Prominent Sign Up Section */}
-          <div className='relative p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/50 dark:to-indigo-950/50 border border-blue-200 dark:border-blue-800 overflow-hidden'>
+          <div className='relative p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/50 dark:to-indigo-950/50 border border-blue-200 dark:border-blue-800 overflow-hidden hidden'>
             <div className='relative z-10 text-center space-y-3'>
               <div className='flex justify-center items-center gap-2 mb-2'>
                 <Sparkles className='w-5 h-5 text-blue-600' />
@@ -214,7 +214,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
           </div>
 
           {/* Divider */}
-          <div className='relative'>
+          <div className='relative hidden'>
             <div className='absolute inset-0 flex items-center'>
               <div className='w-full border-t border-gray-300 dark:border-gray-600'></div>
             </div>
@@ -251,7 +251,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
               <div className='text-center p-4 rounded-lg bg-gray-50 dark:bg-gray-800'>
                 <Shield className='w-12 h-12 mx-auto mb-3 text-primary' />
                 <p className='text-sm text-gray-600 dark:text-gray-300 mb-4'>
-                  Login with one click using the browser extension
+                  Connect with one click using your browser extension
                 </p>
                 <div className="flex justify-center">
                   <Button
@@ -259,7 +259,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                     onClick={handleExtensionLogin}
                     disabled={isLoading}
                   >
-                    {isLoading ? 'Logging in...' : 'Login with Extension'}
+                    {isLoading ? 'Connecting...' : 'Connect with Extension'}
                   </Button>
                 </div>
               </div>
@@ -295,7 +295,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   onClick={handleKeyLogin}
                   disabled={isLoading || !nsec.trim()}
                 >
-                  {isLoading ? 'Verifying...' : 'Log In'}
+                  {isLoading ? 'Connecting...' : 'Connect'}
                 </Button>
 
                 <div className='relative'>
@@ -362,7 +362,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   onClick={handleBunkerLogin}
                   disabled={isLoading || !bunkerUri.trim()}
                 >
-                  {isLoading ? 'Connecting...' : 'Login with Bunker'}
+                  {isLoading ? 'Connecting...' : 'Connect with Bunker'}
                 </Button>
               </div>
             </TabsContent>

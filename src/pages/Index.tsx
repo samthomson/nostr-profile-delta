@@ -15,6 +15,17 @@ import { LoginArea } from '@/components/auth/LoginArea';
 import { useToast } from '@/hooks/useToast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+// Add TypeScript interface for window.nostr
+declare global {
+  interface Window {
+    nostr?: {
+      getPublicKey: () => Promise<string>;
+      signEvent: (event: any) => Promise<any>;
+      getRelays: () => Promise<Record<string, { read: boolean; write: boolean }>>;
+    };
+  }
+}
+
 // Default set of relays to start with
 const DEFAULT_RELAYS = [
   'wss://relay.damus.io',
@@ -75,6 +86,31 @@ const Index = () => {
     { label: 'Custom', relays: [] },
     { label: 'User\'s Relays', relays: [] },
   ]);
+
+  // Effect to get user's pubkey from extension when available
+  useEffect(() => {
+    const checkNostrExtension = async () => {
+      try {
+        if ('nostr' in window && window.nostr) {
+          // Get the pubkey from the extension
+          const pubkey = await window.nostr.getPublicKey();
+          if (pubkey) {
+            try {
+              // Convert to npub for display
+              const npub = nip19.npubEncode(pubkey);
+              setNpubInput(npub);
+            } catch (error) {
+              console.error('Error encoding pubkey to npub:', error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error accessing Nostr extension:', error);
+      }
+    };
+    
+    checkNostrExtension();
+  }, []);
 
   // Query to get the user's relays (kind 10002)
   const { data: userRelays, isLoading: isLoadingUserRelays } = useQuery({
@@ -292,6 +328,72 @@ const Index = () => {
   // Get all relays with outdated profiles
   const outdatedRelays = profilesData?.filter(profile => isOutdatedProfile(profile)) || [];
 
+  // Render the profile content
+  const renderProfileContent = (profile: ProfileData) => {
+    if (!profile.metadata) {
+      return profile.error ? (
+        <span className="text-destructive">{profile.error}</span>
+      ) : (
+        <span className="text-muted-foreground">No data</span>
+      );
+    }
+    
+    const metadata = profile.metadata;
+    
+    return (
+      <div className="flex items-center gap-2">
+        {metadata.picture && (
+          <img 
+            src={metadata.picture} 
+            alt="Profile" 
+            className="w-8 h-8 rounded-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
+            }}
+          />
+        )}
+        <span className="font-medium">
+          {metadata.display_name || metadata.name || 'Unnamed'}
+        </span>
+      </div>
+    );
+  };
+  
+  // Render the differences button
+  const renderDifferencesButton = (profile: ProfileData, outdated: boolean) => {
+    if (!outdated || !mostRecentProfile || !profile.metadata) {
+      return null;
+    }
+    
+    const metadata = profile.metadata;
+    
+    return (
+      <Button 
+        variant="ghost" 
+        size="sm"
+        className="text-xs"
+        onClick={() => {
+          // Create a list of differences
+          const differences = ['name', 'display_name', 'picture', 'banner', 'about', 'website', 'nip05', 'lud06', 'lud16']
+            .filter(field => mostRecentProfile[field] !== metadata[field])
+            .map(field => `${field}: "${metadata[field] || '(empty)'}" vs "${mostRecentProfile[field] || '(empty)'}"`)
+            .join('\n');
+          
+          toast({
+            title: 'Profile Differences',
+            description: (
+              <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 overflow-x-auto">
+                <code className="text-white">{differences}</code>
+              </pre>
+            ),
+          });
+        }}
+      >
+        <Info className="h-4 w-4 mr-1" /> View Differences
+      </Button>
+    );
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-8 bg-background">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -440,8 +542,10 @@ const Index = () => {
                           <TableBody>
                             {profilesData.map((profile, index) => {
                               const outdated = isOutdatedProfile(profile);
-                              const isLatest = profile.timestamp && mostRecentProfile && 
-                                profile.metadata && 
+                              const hasMetadata = !!profile.metadata;
+                              const isLatest = profile.timestamp !== undefined && 
+                                mostRecentProfile !== undefined && 
+                                hasMetadata && 
                                 JSON.stringify(profile.metadata) === JSON.stringify(mostRecentProfile);
                               
                               return (
@@ -461,27 +565,7 @@ const Index = () => {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    {profile.metadata ? (
-                                      <div className="flex items-center gap-2">
-                                        {profile.metadata.picture && (
-                                          <img 
-                                            src={profile.metadata.picture} 
-                                            alt="Profile" 
-                                            className="w-8 h-8 rounded-full object-cover"
-                                            onError={(e) => {
-                                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
-                                            }}
-                                          />
-                                        )}
-                                        <span className="font-medium">
-                                          {profile.metadata.display_name || profile.metadata.name || 'Unnamed'}
-                                        </span>
-                                      </div>
-                                    ) : profile.error ? (
-                                      <span className="text-destructive">{profile.error}</span>
-                                    ) : (
-                                      <span className="text-muted-foreground">No data</span>
-                                    )}
+                                    {renderProfileContent(profile)}
                                   </TableCell>
                                   <TableCell>
                                     {profile.timestamp ? (
@@ -493,31 +577,7 @@ const Index = () => {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    {outdated && mostRecentProfile && profile.metadata && (
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm"
-                                        className="text-xs"
-                                        onClick={() => {
-                                          // Create a list of differences
-                                          const differences = ['name', 'display_name', 'picture', 'banner', 'about', 'website', 'nip05', 'lud06', 'lud16']
-                                            .filter(field => mostRecentProfile[field] !== profile.metadata?.[field])
-                                            .map(field => `${field}: "${profile.metadata?.[field] || '(empty)'}" vs "${mostRecentProfile[field] || '(empty)'}"`)
-                                            .join('\n');
-                                          
-                                          toast({
-                                            title: 'Profile Differences',
-                                            description: (
-                                              <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 overflow-x-auto">
-                                                <code className="text-white">{differences}</code>
-                                              </pre>
-                                            ),
-                                          });
-                                        }}
-                                      >
-                                        <Info className="h-4 w-4 mr-1" /> View Differences
-                                      </Button>
-                                    )}
+                                    {renderDifferencesButton(profile, outdated)}
                                   </TableCell>
                                 </TableRow>
                               );
