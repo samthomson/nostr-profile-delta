@@ -270,13 +270,11 @@ const Index = () => {
       // Combine checked and unchecked results
       const results = [...checkedResults, ...uncheckedResults];
       
-      // Sort by timestamp, most recent first, with unchecked relays at the end
+      // Sort alphabetically by relay URL, with unchecked relays at the end
       return results.sort((a, b) => {
         if ('notChecked' in a) return 1;
         if ('notChecked' in b) return -1;
-        if (!a.timestamp) return 1;
-        if (!b.timestamp) return -1;
-        return b.timestamp - a.timestamp;
+        return a.relayUrl.localeCompare(b.relayUrl);
       });
     },
     enabled: !!pubkey && relaySets.some(set => set.relays.length > 0) && !!userRelays,
@@ -353,7 +351,7 @@ const Index = () => {
   }, [customRelayInput, customRelays, toast]);
 
   // Find the most recent profile
-  const mostRecentProfile = profilesData?.find(p => p.timestamp)?.metadata;
+  const mostRecentProfile = profilesData?.filter(p => !('notChecked' in p) && p.timestamp)?.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0]?.metadata;
 
   // Determine if a profile is outdated compared to the most recent one
   const isOutdatedProfile = (profile: ProfileData) => {
