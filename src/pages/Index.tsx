@@ -552,7 +552,7 @@ const Index = () => {
           <LoginArea className="max-w-60" />
         </header>
 
-        <Separator />
+
 
         <Card>
           <CardHeader>
@@ -782,7 +782,7 @@ const Index = () => {
                   )}
                   
                   {/* Simple relay input */}
-                  <div className="pt-4 border-t">
+                  <div className="pt-4">
                     <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Add custom relays to check for profiles
                     </label>
