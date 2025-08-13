@@ -461,7 +461,6 @@ const Index = () => {
         toast({
           title: 'No Profile Found',
           description: `Couldn't find a profile on ${relayUrl}`,
-          variant: 'destructive'
         });
       }
     } catch (error) {
@@ -634,6 +633,11 @@ const Index = () => {
                       {outdatedRelays.length} Outdated
                     </Badge>
                   )}
+                  {profilesData && profilesData.filter(p => 'error' in p).length > 0 && (
+                    <Badge variant="outline" className="border-orange-500 text-orange-600 dark:text-orange-400">
+                      {profilesData.filter(p => 'error' in p).length} Issues
+                    </Badge>
+                  )}
                   <Button onClick={() => refetchProfiles()} variant="outline" size="sm">
                     Refresh All
                   </Button>
@@ -669,6 +673,17 @@ const Index = () => {
                           <AlertTitle>Outdated Profiles Detected</AlertTitle>
                           <AlertDescription>
                             Found {outdatedRelays.length} relays with outdated profile information.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {/* Show count of relays with errors/not found */}
+                      {profilesData && profilesData.filter(p => 'error' in p).length > 0 && (
+                        <Alert variant="outline" className="mb-4 border-orange-200 dark:border-orange-800">
+                          <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                          <AlertTitle className="text-orange-800 dark:text-orange-200">Relay Issues</AlertTitle>
+                          <AlertDescription className="text-orange-700 dark:text-orange-300">
+                            {profilesData.filter(p => 'error' in p).length} relays have issues or no profile found.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -725,7 +740,15 @@ const Index = () => {
                                     {'notChecked' in profile ? (
                                       <Badge variant="secondary">Not Checked</Badge>
                                     ) : profile.error ? (
-                                      <Badge variant="destructive">Error</Badge>
+                                      <Badge 
+                                        variant={profile.error === 'No profile found' ? 'secondary' : 'destructive'}
+                                        className={profile.error === 'No profile found' 
+                                          ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' 
+                                          : ''
+                                        }
+                                      >
+                                        {profile.error === 'No profile found' ? 'Not Found' : 'Error'}
+                                      </Badge>
                                     ) : (
                                       <>
                                         {outdated && <Badge variant="destructive">Outdated</Badge>}
