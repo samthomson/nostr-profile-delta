@@ -576,45 +576,7 @@ const Index = () => {
 
         {pubkey && (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Custom Relays</CardTitle>
-                <CardDescription>
-                  Add additional relays to check for profiles
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 mb-4">
-                  <Input
-                    placeholder="wss://relay.example.com"
-                    value={customRelayInput}
-                    onChange={(e) => setCustomRelayInput(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleAddRelay}>Add</Button>
-                </div>
-                
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {customRelays.map((relay, index) => (
-                    <Badge 
-                      key={index}
-                      variant="secondary"
-                      className="flex items-center gap-1"
-                    >
-                      {relay}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 text-muted-foreground hover:text-destructive"
-                        onClick={() => setCustomRelays(prev => prev.filter(r => r !== relay))}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -818,6 +780,23 @@ const Index = () => {
                       </div>
                     </div>
                   )}
+                  
+                  {/* Simple relay input */}
+                  <div className="pt-4 border-t">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      Add custom relays to check for profiles
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="wss://relay.example.com"
+                        value={customRelayInput}
+                        onChange={(e) => setCustomRelayInput(e.target.value)}
+                        className="flex-1 max-w-md"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddRelay()}
+                      />
+                      <Button onClick={handleAddRelay} size="sm">Add</Button>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -831,7 +810,7 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {relaySets.map((set, index) => (
+                  {relaySets.filter(set => set.label !== 'Custom').map((set, index) => (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-medium">{set.label} Relays</h3>
@@ -863,20 +842,10 @@ const Index = () => {
                                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle">
                                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                                     <polyline points="22 4 12 14.01 9 11.01"/>
-                                  </svg>
+                                </svg>
                                 </span>
                               )}
                               {relay}
-                              {set.label === 'Custom' && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-4 w-4 text-muted-foreground hover:text-destructive"
-                                  onClick={() => setCustomRelays(prev => prev.filter(r => r !== relay))}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              )}
                             </Badge>
                             );
                           })}
@@ -884,6 +853,34 @@ const Index = () => {
                       )}
                     </div>
                   ))}
+                  
+                  {/* Show custom relays if any exist */}
+                  {customRelays.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium">Custom Relays</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {customRelays.map((relay, relayIndex) => (
+                          <Badge 
+                            key={relayIndex}
+                            variant="secondary"
+                            className="flex items-center gap-1"
+                          >
+                            {relay}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 text-muted-foreground hover:text-destructive"
+                              onClick={() => setCustomRelays(prev => prev.filter(r => r !== relay))}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
