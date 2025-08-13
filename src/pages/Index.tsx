@@ -398,6 +398,7 @@ const Index = () => {
   }, [profilesData]);
   
   // Function to refresh a single relay profile
+  // Distinguishes between "No profile found" (not an error) and actual errors
   const refreshRelayProfile = async (relayUrl: string) => {
     if (!pubkey) return;
     
@@ -634,7 +635,7 @@ const Index = () => {
                     </Badge>
                   )}
                   {profilesData && profilesData.filter(p => 'error' in p).length > 0 && (
-                    <Badge variant="outline" className="border-orange-500 text-orange-600 dark:text-orange-400">
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                       {profilesData.filter(p => 'error' in p).length} Issues
                     </Badge>
                   )}
@@ -679,10 +680,10 @@ const Index = () => {
 
                       {/* Show count of relays with errors/not found */}
                       {profilesData && profilesData.filter(p => 'error' in p).length > 0 && (
-                        <Alert variant="outline" className="mb-4 border-orange-200 dark:border-orange-800">
-                          <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                          <AlertTitle className="text-orange-800 dark:text-orange-200">Relay Issues</AlertTitle>
-                          <AlertDescription className="text-orange-700 dark:text-orange-300">
+                        <Alert variant="outline" className="mb-4 border-gray-200 dark:border-gray-800">
+                          <AlertCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                          <AlertTitle className="text-gray-800 dark:text-gray-200">Relay Issues</AlertTitle>
+                          <AlertDescription className="text-gray-700 dark:text-gray-300">
                             {profilesData.filter(p => 'error' in p).length} relays have issues or no profile found.
                           </AlertDescription>
                         </Alert>
@@ -737,6 +738,13 @@ const Index = () => {
                                     </div>
                                   </TableCell>
                                   <TableCell>
+                                    {/* Status badges with distinct colors:
+                                        - Not Checked: secondary (gray)
+                                        - Not Found: secondary with custom styling (light gray - not an error)
+                                        - Error: destructive (red - actual error)
+                                        - Outdated: destructive (red - needs attention)
+                                        - Latest: outline with green (most recent)
+                                        - OK: secondary (gray - up to date) */}
                                     {'notChecked' in profile ? (
                                       <Badge variant="secondary">Not Checked</Badge>
                                     ) : profile.error ? (
