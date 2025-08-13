@@ -54,9 +54,9 @@ interface ProfileMetadata {
   [key: string]: string | undefined;
 }
 
-interface ProfileData {
+interface CheckedProfile {
   relayUrl: string;
-  event?: {
+  event: {
     pubkey: string;
     content: string;
     created_at: number;
@@ -65,11 +65,21 @@ interface ProfileData {
     sig: string;
     kind: number;
   };
-  error?: string;
   metadata?: ProfileMetadata;
-  timestamp?: number;
-  notChecked?: boolean;
+  timestamp: number;
 }
+
+interface ErrorProfile {
+  relayUrl: string;
+  error: string;
+}
+
+interface UncheckedProfile {
+  relayUrl: string;
+  notChecked: boolean;
+}
+
+type ProfileData = CheckedProfile | ErrorProfile | UncheckedProfile;
 
 interface RelaySet {
   label: string;
@@ -350,12 +360,17 @@ const Index = () => {
     });
   }, [customRelayInput, customRelays, toast]);
 
-  // Find the most recent profile
-  const mostRecentProfile = profilesData?.filter(p => !('notChecked' in p) && p.timestamp)?.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0]?.metadata;
+  // Type guard to check if profile is a checked profile
+  const isCheckedProfile = (p: ProfileData): p is CheckedProfile => 
+    'timestamp' in p && !('error' in p) && !('notChecked' in p);
+  
+  // Find the most recent profile - only consider profiles that have been checked and have timestamps
+  const checkedProfiles = profilesData?.filter(isCheckedProfile) || [];
+  const mostRecentProfile = checkedProfiles.sort((a, b) => b.timestamp - a.timestamp)[0]?.metadata;
 
   // Determine if a profile is outdated compared to the most recent one
   const isOutdatedProfile = (profile: ProfileData) => {
-    if (!mostRecentProfile || !profile.metadata) return false;
+    if (!mostRecentProfile || !isCheckedProfile(profile) || !profile.metadata) return false;
     
     // Check if any field is different from the most recent profile
     const fields = ['name', 'display_name', 'picture', 'banner', 'about', 'website', 'nip05', 'lud06', 'lud16'];
